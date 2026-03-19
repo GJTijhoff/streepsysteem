@@ -63,24 +63,54 @@ export default function LoginScreen() {
 
     setSubmitting(true)
 
-    const loginResult = await supabase.auth.signInWithPassword({
-      email: selectedEmail,
-      password: password.trim(),
-    })
+    const cleanPassword = password.trim()
 
-    if (!loginResult.error) {
+    const memberResult = await supabase
+      .from('members')
+      .select('id, display_name, auth_user_id')
+      .eq('display_name', selectedName)
+      .single()
+
+    if (memberResult.error || !memberResult.data) {
+      setMessage(memberResult.error ? memberResult.error.message : 'Member not found')
+      setSubmitting(false)
+      return
+    }
+
+    const member = memberResult.data
+    const email = selectedEmail
+
+    if (member.auth_user_id) {
+      const loginResult = await supabase.auth.signInWithPassword({
+        email,
+        password: cleanPassword,
+      })
+
+      if (loginResult.error) {
+        setMessage('Wrong password')
+        setSubmitting(false)
+        return
+      }
+
       router.replace('/home')
       setSubmitting(false)
       return
     }
 
     const signUpResult = await supabase.auth.signUp({
-      email: selectedEmail,
-      password: password.trim(),
+      email,
+      password: cleanPassword,
     })
 
     if (signUpResult.error) {
-      setMessage('Wrong password or account setup failed')
+      const lower = signUpResult.error.message.toLowerCase()
+
+      if (lower.includes('already registered')) {
+        setMessage('This account is already claimed. Try the correct password.')
+      } else {
+        setMessage(signUpResult.error.message)
+      }
+
       setSubmitting(false)
       return
     }
@@ -96,7 +126,7 @@ export default function LoginScreen() {
     const linkResult = await supabase
       .from('members')
       .update({ auth_user_id: newAuthUserId })
-      .eq('display_name', selectedName)
+      .eq('id', member.id)
       .is('auth_user_id', null)
 
     if (linkResult.error) {
@@ -105,13 +135,13 @@ export default function LoginScreen() {
       return
     }
 
-    const secondLoginResult = await supabase.auth.signInWithPassword({
-      email: selectedEmail,
-      password: password.trim(),
+    const loginResult = await supabase.auth.signInWithPassword({
+      email,
+      password: cleanPassword,
     })
 
-    if (secondLoginResult.error) {
-      setMessage(secondLoginResult.error.message)
+    if (loginResult.error) {
+      setMessage(loginResult.error.message)
       setSubmitting(false)
       return
     }
