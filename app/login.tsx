@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, ImageBackground, ActivityIndicator } from 'react-native'
+import { View, Text, TextInput, Pressable, ImageBackground } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 
-type Member = {
-  id: string
-  display_name: string
-  sort_order: number
-  auth_user_id: string | null
-}
+const memberNames = [
+  'Rosa',
+  'Hidde',
+  'Siebe',
+  'Annika',
+  'Eva',
+  'Isa',
+  'Lotte',
+  'Thijs',
+  'Wouda',
+  'Gert-Jan',
+]
 
 function makeHiddenEmail(displayName: string) {
   const slug = displayName
@@ -20,20 +26,17 @@ function makeHiddenEmail(displayName: string) {
 }
 
 export default function LoginScreen() {
-  const [members, setMembers] = useState<Member[]>([])
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [selectedName, setSelectedName] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
-  const [loadingMembers, setLoadingMembers] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const selectedEmail = useMemo(() => {
-    if (!selectedMember) return ''
-    return makeHiddenEmail(selectedMember.display_name)
-  }, [selectedMember])
+    if (!selectedName) return ''
+    return makeHiddenEmail(selectedName)
+  }, [selectedName])
 
   useEffect(() => {
-    loadMembers()
     checkExistingSession()
   }, [])
 
@@ -45,29 +48,10 @@ export default function LoginScreen() {
     }
   }
 
-  async function loadMembers() {
-    setLoadingMembers(true)
-    setMessage('')
-
-    const result = await supabase
-      .from('members')
-      .select('id, display_name, sort_order, auth_user_id')
-      .order('sort_order', { ascending: true })
-
-    if (result.error) {
-      setMessage(result.error.message)
-      setLoadingMembers(false)
-      return
-    }
-
-    setMembers((result.data as Member[]) || [])
-    setLoadingMembers(false)
-  }
-
   async function handleContinue() {
     setMessage('')
 
-    if (!selectedMember) {
+    if (!selectedName) {
       setMessage('Select your name')
       return
     }
@@ -90,32 +74,13 @@ export default function LoginScreen() {
       return
     }
 
-    const loginErrorText = loginResult.error.message.toLowerCase()
-    const accountMissing =
-      loginErrorText.includes('invalid login credentials') ||
-      loginErrorText.includes('email not confirmed') ||
-      loginErrorText.includes('user not found') ||
-      loginErrorText.includes('invalid credentials')
-
-    if (!accountMissing) {
-      setMessage(loginResult.error.message)
-      setSubmitting(false)
-      return
-    }
-
-    if (selectedMember.auth_user_id) {
-      setMessage('Wrong password')
-      setSubmitting(false)
-      return
-    }
-
     const signUpResult = await supabase.auth.signUp({
       email: selectedEmail,
       password: password.trim(),
     })
 
     if (signUpResult.error) {
-      setMessage(signUpResult.error.message)
+      setMessage('Wrong password or account setup failed')
       setSubmitting(false)
       return
     }
@@ -131,7 +96,7 @@ export default function LoginScreen() {
     const linkResult = await supabase
       .from('members')
       .update({ auth_user_id: newAuthUserId })
-      .eq('id', selectedMember.id)
+      .eq('display_name', selectedName)
       .is('auth_user_id', null)
 
     if (linkResult.error) {
@@ -173,114 +138,148 @@ export default function LoginScreen() {
         <View
           style={{
             width: '100%',
-            maxWidth: 640,
+            maxWidth: 760,
             backgroundColor: 'white',
             borderRadius: 20,
             padding: 24,
-            gap: 20,
           }}
         >
-          <View style={{ gap: 6 }}>
-            <Text style={{ fontSize: 30, fontWeight: '700', textAlign: 'center' }}>
-              Streepsysteem
-            </Text>
-            <Text style={{ textAlign: 'center', color: '#555', fontSize: 16 }}>
-              Choose your name
-            </Text>
-            <Text style={{ textAlign: 'center', color: '#777', fontSize: 14 }}>
-              First time? Set your password. Next time, enter the same password.
-            </Text>
-          </View>
+          <Text
+            style={{
+              fontSize: 30,
+              fontWeight: '700',
+              textAlign: 'center',
+              marginBottom: 8,
+            }}
+          >
+            Streepsysteem
+          </Text>
 
-          {loadingMembers ? (
-            <View style={{ paddingVertical: 40, alignItems: 'center', gap: 12 }}>
-              <ActivityIndicator />
-              <Text>Loading members...</Text>
-            </View>
-          ) : (
-            <View
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 12,
-                justifyContent: 'center',
-              }}
-            >
-              {members.map((member) => {
-                const selected = selectedMember?.id === member.id
+          <Text
+            style={{
+              textAlign: 'center',
+              color: '#555',
+              fontSize: 16,
+              marginBottom: 6,
+            }}
+          >
+            Choose your name
+          </Text>
 
-                return (
-                  <Pressable
-                    key={member.id}
-                    onPress={() => {
-                      setSelectedMember(member)
-                      setMessage('')
-                    }}
+          <Text
+            style={{
+              textAlign: 'center',
+              color: '#777',
+              fontSize: 14,
+              marginBottom: 24,
+            }}
+          >
+            First time? Set your password. Next time, enter the same password.
+          </Text>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              marginBottom: 24,
+            }}
+          >
+            {memberNames.map((name) => {
+              const selected = selectedName === name
+
+              return (
+                <Pressable
+                  key={name}
+                  onPress={() => {
+                    setSelectedName(name)
+                    setMessage('')
+                  }}
+                  style={{
+                    width: '18%',
+                    aspectRatio: 1,
+                    minWidth: 110,
+                    marginBottom: 16,
+                    borderRadius: 14,
+                    borderWidth: 2,
+                    borderColor: selected ? '#111' : '#d6d6d6',
+                    backgroundColor: selected ? '#111' : '#f4f4f4',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 10,
+                  }}
+                >
+                  <Text
                     style={{
-                      width: '31%',
-                      minWidth: 150,
-                      paddingVertical: 16,
-                      paddingHorizontal: 12,
-                      borderRadius: 14,
-                      borderWidth: 1.5,
-                      borderColor: selected ? '#111' : '#ddd',
-                      backgroundColor: selected ? '#111' : '#f7f7f7',
+                      textAlign: 'center',
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: selected ? 'white' : '#111',
                     }}
                   >
-                    <Text
-                      style={{
-                        textAlign: 'center',
-                        fontWeight: '600',
-                        color: selected ? 'white' : '#111',
-                        fontSize: 16,
-                      }}
-                    >
-                      {member.display_name}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-          )}
-
-          <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 15, color: '#444' }}>
-              {selectedMember ? `Selected: ${selectedMember.display_name}` : 'Selected: nobody yet'}
-            </Text>
-
-            <TextInput
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              style={{
-                borderWidth: 1,
-                borderColor: '#ddd',
-                padding: 14,
-                borderRadius: 12,
-                fontSize: 16,
-              }}
-            />
-
-            <Pressable
-              onPress={handleContinue}
-              disabled={submitting || loadingMembers}
-              style={{
-                backgroundColor: '#111',
-                padding: 15,
-                borderRadius: 12,
-                alignItems: 'center',
-                opacity: submitting || loadingMembers ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
-                {submitting ? 'Loading...' : 'Continue'}
-              </Text>
-            </Pressable>
+                    {name}
+                  </Text>
+                </Pressable>
+              )
+            })}
           </View>
 
+          <Text
+            style={{
+              fontSize: 15,
+              color: '#444',
+              marginBottom: 10,
+            }}
+          >
+            {selectedName ? `Selected: ${selectedName}` : 'Selected: nobody yet'}
+          </Text>
+
+          <TextInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={{
+              borderWidth: 1,
+              borderColor: '#ddd',
+              padding: 14,
+              borderRadius: 12,
+              fontSize: 16,
+              marginBottom: 12,
+            }}
+          />
+
+          <Pressable
+            onPress={handleContinue}
+            disabled={submitting}
+            style={{
+              backgroundColor: '#111',
+              padding: 15,
+              borderRadius: 12,
+              alignItems: 'center',
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            <Text
+              style={{
+                color: 'white',
+                fontWeight: '700',
+                fontSize: 16,
+              }}
+            >
+              {submitting ? 'Loading...' : 'Continue'}
+            </Text>
+          </Pressable>
+
           {message ? (
-            <Text style={{ color: '#b00020', textAlign: 'center', fontSize: 14 }}>
+            <Text
+              style={{
+                color: '#b00020',
+                textAlign: 'center',
+                fontSize: 14,
+                marginTop: 14,
+              }}
+            >
               {message}
             </Text>
           ) : null}
