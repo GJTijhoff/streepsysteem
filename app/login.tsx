@@ -1,153 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, ImageBackground } from 'react-native'
+import { useState } from 'react'
+import { View, Text, Pressable, ImageBackground } from 'react-native'
 import { router } from 'expo-router'
-import { supabase } from '../lib/supabase'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
-const memberNames = [
-  'Rosa',
-  'Hidde',
-  'Siebe',
-  'Annika',
-  'Eva',
-  'Isa',
-  'Lotte',
-  'Thijs',
-  'Wouda',
-  'Gert-Jan',
+const members = [
+  { name: 'Rosa', image: require('../assets/members/rosa.png') },
+  { name: 'Hidde', image: require('../assets/members/hidde.png') },
+  { name: 'Siebe', image: require('../assets/members/siebe.png') },
+  { name: 'Annika', image: require('../assets/members/annika.png') },
+  { name: 'Eva', image: require('../assets/members/eva.png') },
+  { name: 'Isa', image: require('../assets/members/isa.png') },
+  { name: 'Lotte', image: require('../assets/members/lotte.png') },
+  { name: 'Thijs', image: require('../assets/members/thijs.png') },
+  { name: 'Wouda', image: require('../assets/members/wouda.png') },
+  { name: 'Gert-Jan', image: require('../assets/members/gertjan.png') },
 ]
 
-function makeHiddenEmail(displayName: string) {
-  const slug = displayName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return `${slug}@streepsysteem.local`
-}
+const STORAGE_KEY = 'selected_member'
 
 export default function LoginScreen() {
   const [selectedName, setSelectedName] = useState('')
-  const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const selectedEmail = useMemo(() => {
-    if (!selectedName) return ''
-    return makeHiddenEmail(selectedName)
-  }, [selectedName])
-
-  useEffect(() => {
-    checkExistingSession()
-  }, [])
-
-  async function checkExistingSession() {
-    const result = await supabase.auth.getSession()
-
-    if (result.data.session) {
-      router.replace('/home')
-    }
-  }
 
   async function handleContinue() {
     setMessage('')
 
     if (!selectedName) {
-      setMessage('Select your name')
+      setMessage('Kies eerst je naam')
       return
     }
 
-    if (password.trim().length < 6) {
-      setMessage('Password must be at least 6 characters')
-      return
-    }
-
-    setSubmitting(true)
-
-    const cleanPassword = password.trim()
-
-    const memberResult = await supabase
-      .from('members')
-      .select('id, display_name, auth_user_id')
-      .eq('display_name', selectedName)
-      .single()
-
-    if (memberResult.error || !memberResult.data) {
-      setMessage(memberResult.error ? memberResult.error.message : 'Member not found')
-      setSubmitting(false)
-      return
-    }
-
-    const member = memberResult.data
-    const email = selectedEmail
-
-    if (member.auth_user_id) {
-      const loginResult = await supabase.auth.signInWithPassword({
-        email,
-        password: cleanPassword,
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        display_name: selectedName,
       })
-
-      if (loginResult.error) {
-        setMessage('Wrong password')
-        setSubmitting(false)
-        return
-      }
-
-      router.replace('/home')
-      setSubmitting(false)
-      return
-    }
-
-    const signUpResult = await supabase.auth.signUp({
-      email,
-      password: cleanPassword,
-    })
-
-    if (signUpResult.error) {
-      const lower = signUpResult.error.message.toLowerCase()
-
-      if (lower.includes('already registered')) {
-        setMessage('This account is already claimed. Try the correct password.')
-      } else {
-        setMessage(signUpResult.error.message)
-      }
-
-      setSubmitting(false)
-      return
-    }
-
-    const newAuthUserId = signUpResult.data.user?.id
-
-    if (!newAuthUserId) {
-      setMessage('Could not create account')
-      setSubmitting(false)
-      return
-    }
-
-    const linkResult = await supabase
-      .from('members')
-      .update({ auth_user_id: newAuthUserId })
-      .eq('id', member.id)
-      .is('auth_user_id', null)
-
-    if (linkResult.error) {
-      setMessage(linkResult.error.message)
-      setSubmitting(false)
-      return
-    }
-
-    const loginResult = await supabase.auth.signInWithPassword({
-      email,
-      password: cleanPassword,
-    })
-
-    if (loginResult.error) {
-      setMessage(loginResult.error.message)
-      setSubmitting(false)
-      return
-    }
+    )
 
     router.replace('/home')
-    setSubmitting(false)
   }
 
   return (
@@ -161,7 +51,7 @@ export default function LoginScreen() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: 'rgba(0,0,0,0.45)',
+          backgroundColor: 'rgba(0,0,0,0.42)',
           padding: 24,
         }}
       >
@@ -170,8 +60,10 @@ export default function LoginScreen() {
             width: '100%',
             maxWidth: 760,
             backgroundColor: 'white',
-            borderRadius: 20,
+            borderRadius: 24,
             padding: 24,
+            borderWidth: 1,
+            borderColor: '#e5e7eb',
           }}
         >
           <Text
@@ -180,6 +72,7 @@ export default function LoginScreen() {
               fontWeight: '700',
               textAlign: 'center',
               marginBottom: 8,
+              color: '#111827',
             }}
           >
             Streepsysteem
@@ -188,23 +81,23 @@ export default function LoginScreen() {
           <Text
             style={{
               textAlign: 'center',
-              color: '#555',
+              color: '#374151',
               fontSize: 16,
-              marginBottom: 6,
+              marginBottom: 4,
             }}
           >
-            Choose your name
+            Kies je naam
           </Text>
 
           <Text
             style={{
               textAlign: 'center',
-              color: '#777',
+              color: '#6b7280',
               fontSize: 14,
-              marginBottom: 24,
+              marginBottom: 22,
             }}
           >
-            First time? Set your password. Next time, enter the same password.
+            Klik op je naam om verder te gaan
           </Text>
 
           <View
@@ -212,82 +105,103 @@ export default function LoginScreen() {
               flexDirection: 'row',
               flexWrap: 'wrap',
               justifyContent: 'space-between',
-              marginBottom: 24,
+              marginBottom: 20,
             }}
           >
-            {memberNames.map((name) => {
-              const selected = selectedName === name
+            {members.map((member) => {
+              const selected = selectedName === member.name
 
               return (
                 <Pressable
-                  key={name}
-                  onPress={() => {
-                    setSelectedName(name)
-                    setMessage('')
-                  }}
-                  style={{
-                    width: '18%',
-                    aspectRatio: 1,
-                    minWidth: 110,
-                    marginBottom: 16,
-                    borderRadius: 14,
-                    borderWidth: 2,
-                    borderColor: selected ? '#111' : '#d6d6d6',
-                    backgroundColor: selected ? '#111' : '#f4f4f4',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 10,
-                  }}
-                >
-                  <Text
-                    style={{
-                      textAlign: 'center',
-                      fontSize: 16,
-                      fontWeight: '600',
-                      color: selected ? 'white' : '#111',
+                    key={member.name}
+                    onPress={() => {
+                        setSelectedName(member.name)
+                        setMessage('')
                     }}
-                  >
-                    {name}
-                  </Text>
+                    style={{
+                        width: '18%',
+                        aspectRatio: 1,
+                        minWidth: 110,
+                        marginBottom: 14,
+                        borderRadius: 16,
+                        overflow: 'hidden',
+                        backgroundColor: '#e5e7eb',
+                    }}
+                    >
+                    <ImageBackground
+                        source={member.image}
+                        resizeMode="cover"
+                        imageStyle={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: 16,
+                        }}
+                        style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        }}
+                    >
+                        <View
+                        style={{
+                            flex: 1,
+                            borderRadius: 16,
+                            borderWidth: 2,
+                            borderColor: selected ? '#16a34a' : '#d1d5db',
+                            backgroundColor: selected ? 'rgba(22,163,74,0.28)' : 'rgba(0,0,0,0.22)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 10,
+                        }}
+                        >
+                        <Text
+                            style={{
+                            textAlign: 'center',
+                            fontSize: 15,
+                            fontWeight: '700',
+                            color: 'white',
+                            textShadowColor: 'rgba(0,0,0,0.55)',
+                            textShadowOffset: { width: 0, height: 1 },
+                            textShadowRadius: 4,
+                            }}
+                        >
+                            {member.name}
+                        </Text>
+                        </View>
+                    </ImageBackground>
                 </Pressable>
               )
             })}
           </View>
 
-          <Text
+          <View
             style={{
-              fontSize: 15,
-              color: '#444',
-              marginBottom: 10,
-            }}
-          >
-            {selectedName ? `Selected: ${selectedName}` : 'Selected: nobody yet'}
-          </Text>
-
-          <TextInput
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            style={{
+              backgroundColor: '#f0fdf4',
               borderWidth: 1,
-              borderColor: '#ddd',
-              padding: 14,
-              borderRadius: 12,
-              fontSize: 16,
+              borderColor: '#bbf7d0',
+              borderRadius: 14,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
               marginBottom: 12,
             }}
-          />
+          >
+            <Text
+              style={{
+                fontSize: 15,
+                color: '#166534',
+                fontWeight: '600',
+              }}
+            >
+              {selectedName ? `Geselecteerd: ${selectedName}` : 'Nog niemand geselecteerd'}
+            </Text>
+          </View>
 
           <Pressable
             onPress={handleContinue}
-            disabled={submitting}
             style={{
-              backgroundColor: '#111',
-              padding: 15,
-              borderRadius: 12,
+              backgroundColor: '#111827',
+              paddingVertical: 15,
+              borderRadius: 14,
               alignItems: 'center',
-              opacity: submitting ? 0.6 : 1,
             }}
           >
             <Text
@@ -297,14 +211,14 @@ export default function LoginScreen() {
                 fontSize: 16,
               }}
             >
-              {submitting ? 'Loading...' : 'Continue'}
+              Verder
             </Text>
           </Pressable>
 
           {message ? (
             <Text
               style={{
-                color: '#b00020',
+                color: '#be123c',
                 textAlign: 'center',
                 fontSize: 14,
                 marginTop: 14,
