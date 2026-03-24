@@ -90,6 +90,12 @@ export default function HomeScreen() {
   const [cleanupSaving, setCleanupSaving] = useState(false)
   const { width } = useWindowDimensions()
 
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = 'Streepsysteem | Home'
+    }
+  }, [])
+
   const screenPadding = width < 420 ? 10 : 14
   const modalOuterPadding = width < 420 ? 10 : 16
   const modalInnerPadding = width < 420 ? 12 : 16

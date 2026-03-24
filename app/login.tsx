@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -37,6 +37,12 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const { width } = useWindowDimensions()
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = 'Streepsysteem | Login'
+    }
+  }, [])
 
   const layout = useMemo(() => {
     const screenPadding = width < 420 ? 12 : 24
