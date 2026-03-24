@@ -61,7 +61,7 @@ type ChartSeries = {
 }
 
 const STORAGE_KEY = 'selected_member'
-const bannerImage = require('../assets/members/_GroupsfotoGoed.png')
+const bannerImage = require('../assets/members/_GroupsfotoGoed.jpg')
 const bannerImageOffsetY = -70
 const bannerImageHeight = '145%'
 const baseChartColor = '#166534'
