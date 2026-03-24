@@ -7,6 +7,8 @@ import {
   useWindowDimensions,
   ScrollView,
   SafeAreaView,
+  Modal,
+  TextInput,
 } from 'react-native'
 import { router } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -25,13 +27,18 @@ const members = [
 ]
 
 const STORAGE_KEY = 'selected_member'
+const ADMIN_PASSWORD = 'vobaas63'
+const protectedNames = ['Hidde', 'Gert-Jan']
 
 export default function LoginScreen() {
   const [selectedName, setSelectedName] = useState('')
   const [message, setMessage] = useState('')
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [password, setPassword] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
   const { width } = useWindowDimensions()
 
-    const layout = useMemo(() => {
+  const layout = useMemo(() => {
     const screenPadding = width < 420 ? 12 : 24
     const cardPadding = width < 420 ? 14 : 24
     const tileGap = width < 420 ? 8 : 12
@@ -39,21 +46,33 @@ export default function LoginScreen() {
 
     let columns = 5
     if (width < 700) columns = 4
-    if (width < 520) columns = 3
-    if (width < 360) columns = 2
+    if (width < 520) columns = 2
 
     const tileSize =
-        (containerWidth - cardPadding * 2 - tileGap * (columns - 1)) / columns
+      (containerWidth - cardPadding * 2 - tileGap * (columns - 1)) / columns
 
     return {
-        screenPadding,
-        cardPadding,
-        tileGap,
-        columns,
-        tileSize,
-        containerWidth,
+      screenPadding,
+      cardPadding,
+      tileGap,
+      tileSize,
+      containerWidth,
     }
-    }, [width])
+  }, [width])
+
+  async function continueAsSelectedUser() {
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        display_name: selectedName,
+      })
+    )
+
+    setShowPasswordModal(false)
+    setPassword('')
+    setPasswordMessage('')
+    router.replace('/home')
+  }
 
   async function handleContinue() {
     setMessage('')
@@ -63,14 +82,25 @@ export default function LoginScreen() {
       return
     }
 
-    await AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        display_name: selectedName,
-      })
-    )
+    if (protectedNames.includes(selectedName)) {
+      setPassword('')
+      setPasswordMessage('')
+      setShowPasswordModal(true)
+      return
+    }
 
-    router.replace('/home')
+    await continueAsSelectedUser()
+  }
+
+  async function handlePasswordSubmit() {
+    setPasswordMessage('')
+
+    if (password !== ADMIN_PASSWORD) {
+      setPasswordMessage('Onjuist wachtwoord')
+      return
+    }
+
+    await continueAsSelectedUser()
   }
 
   return (
@@ -136,13 +166,13 @@ export default function LoginScreen() {
             </Text>
 
             <View
-            style={{
+              style={{
                 flexDirection: 'row',
                 flexWrap: 'wrap',
                 justifyContent: 'center',
                 marginBottom: 18,
                 marginHorizontal: -layout.tileGap / 2,
-            }}
+              }}
             >
               {members.map((member) => {
                 const selected = selectedName === member.name
@@ -155,13 +185,13 @@ export default function LoginScreen() {
                       setMessage('')
                     }}
                     style={{
-                    width: layout.tileSize,
-                    height: layout.tileSize,
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    backgroundColor: '#e5e7eb',
-                    marginHorizontal: layout.tileGap / 2,
-                    marginBottom: layout.tileGap,
+                      width: layout.tileSize,
+                      height: layout.tileSize,
+                      borderRadius: 16,
+                      overflow: 'hidden',
+                      backgroundColor: '#e5e7eb',
+                      marginHorizontal: layout.tileGap / 2,
+                      marginBottom: layout.tileGap,
                     }}
                   >
                     <ImageBackground
@@ -265,6 +295,116 @@ export default function LoginScreen() {
             ) : null}
           </View>
         </ScrollView>
+
+        <Modal visible={showPasswordModal} transparent animationType="fade">
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.35)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: width < 420 ? 12 : 16,
+            }}
+          >
+            <View
+              style={{
+                width: '100%',
+                maxWidth: 420,
+                backgroundColor: 'white',
+                borderRadius: 20,
+                padding: width < 420 ? 14 : 18,
+                borderWidth: 1,
+                borderColor: '#e5e7eb',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: '700',
+                  color: '#111827',
+                  marginBottom: 8,
+                }}
+              >
+                Wachtwoord nodig
+              </Text>
+
+              <Text
+                style={{
+                  fontSize: 15,
+                  color: '#374151',
+                  marginBottom: 12,
+                }}
+              >
+                Voor {selectedName} is een wachtwoord vereist.
+              </Text>
+
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="Voer wachtwoord in"
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#d1d5db',
+                  borderRadius: 14,
+                  padding: 14,
+                  fontSize: 15,
+                  backgroundColor: '#fafafa',
+                  marginBottom: 12,
+                }}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  onPress={handlePasswordSubmit}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#111827',
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                    Doorgaan
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setShowPasswordModal(false)
+                    setPassword('')
+                    setPasswordMessage('')
+                  }}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#f3f4f6',
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#111827', fontWeight: '700', fontSize: 16 }}>
+                    Annuleren
+                  </Text>
+                </Pressable>
+              </View>
+
+              {passwordMessage ? (
+                <Text
+                  style={{
+                    color: '#be123c',
+                    textAlign: 'center',
+                    fontSize: 14,
+                    marginTop: 12,
+                  }}
+                >
+                  {passwordMessage}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ImageBackground>
   )

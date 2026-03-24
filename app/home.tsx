@@ -29,6 +29,7 @@ type TimelineItem = {
   created_at: string
   from_user_id: string
   to_user_id: string
+  delta: number
   from_member: TimelineRelation
   to_member: TimelineRelation
 }
@@ -40,7 +41,7 @@ type TimelineDisplayItem = {
   created_at: string
   from_name: string
   to_name: string
-  aantal: number
+  totaal_delta: number
 }
 
 type StreepjesRow = {
@@ -83,6 +84,10 @@ export default function HomeScreen() {
   const [deleteItem, setDeleteItem] = useState<TimelineDisplayItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [selectedChartMemberId, setSelectedChartMemberId] = useState('')
+  const [cleanupUserId, setCleanupUserId] = useState('')
+  const [cleanupAantal, setCleanupAantal] = useState('')
+  const [cleanupMessage, setCleanupMessage] = useState('')
+  const [cleanupSaving, setCleanupSaving] = useState(false)
   const { width } = useWindowDimensions()
 
   const screenPadding = width < 420 ? 10 : 14
@@ -154,6 +159,7 @@ export default function HomeScreen() {
         created_at,
         from_user_id,
         to_user_id,
+        delta,
         from_member:members!streepjes_from_user_id_fkey(display_name),
         to_member:members!streepjes_to_user_id_fkey(display_name)
       `)
@@ -186,7 +192,7 @@ export default function HomeScreen() {
     for (let i = 0; i < timelineRows.length; i += 1) {
       const item = timelineRows[i]
       if (map[item.to_user_id]) {
-        map[item.to_user_id].streepjes += 1
+        map[item.to_user_id].streepjes += item.delta
       }
     }
 
@@ -219,6 +225,7 @@ export default function HomeScreen() {
         created_at,
         from_user_id,
         to_user_id,
+        delta,
         from_member:members!streepjes_from_user_id_fkey(display_name),
         to_member:members!streepjes_to_user_id_fkey(display_name)
       `)
@@ -263,13 +270,12 @@ export default function HomeScreen() {
 
     setSaving(true)
 
-    const rows = Array.from({ length: streepjesAantal }, () => ({
+    const result = await supabase.from('streepjes').insert({
       from_user_id: currentMemberId,
       to_user_id: selectedUserId,
+      delta: streepjesAantal,
       reason: reason.trim(),
-    }))
-
-    const result = await supabase.from('streepjes').insert(rows)
+    })
 
     if (result.error) {
       setModalMessage(result.error.message)
@@ -285,6 +291,68 @@ export default function HomeScreen() {
     setSaving(false)
     await refreshAll()
   }
+
+    async function handleCleanup() {
+    setCleanupMessage('')
+    setMessage('')
+
+    if (!(currentUserName === 'Hidde' || currentUserName === 'Gert-Jan')) {
+        setCleanupMessage('Alleen Hidde en Gert-Jan mogen streepjes wegwerken')
+        return
+    }
+
+    if (!cleanupUserId) {
+        setCleanupMessage('Kies eerst van wie streepjes afgaan')
+        return
+    }
+
+    const amount = Number(cleanupAantal)
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+        setCleanupMessage('Vul een geldig aantal in')
+        return
+    }
+
+    // 🔑 HAAL HUIDIGE STAND OP
+    const target = streepjesRows.find((row) => row.userId === cleanupUserId)
+
+    if (!target) {
+        setCleanupMessage('Gebruiker niet gevonden')
+        return
+    }
+
+    if (target.streepjes <= 0) {
+        setCleanupMessage('Deze persoon heeft geen streepjes meer')
+        return
+    }
+
+    if (amount > target.streepjes) {
+        setCleanupMessage(`Maximaal ${target.streepjes} streepjes mogelijk`)
+        return
+    }
+
+    setCleanupSaving(true)
+
+    const result = await supabase.from('streepjes').insert({
+        from_user_id: currentMemberId,
+        to_user_id: cleanupUserId,
+        delta: -amount,
+        reason: 'Streepjes weggewerkt',
+    })
+
+    if (result.error) {
+        setCleanupMessage(result.error.message)
+        setCleanupSaving(false)
+        return
+    }
+
+    setCleanupUserId('')
+    setCleanupAantal('')
+    setCleanupMessage('')
+    setCleanupSaving(false)
+
+    await refreshAll()
+    }
 
   async function deleteStreepjesFromTimelineItem() {
     if (!deleteItem || deleteItem.ids.length === 0) {
@@ -362,12 +430,12 @@ export default function HomeScreen() {
       const item = timeline[i]
       const fromName = getSingleName(item.from_member, 'Onbekend')
       const toName = getSingleName(item.to_member, 'Onbekend')
-      const key = `${item.created_at}|${item.from_user_id}|${item.to_user_id}|${item.reason}`
+      const key = `${item.created_at}|${item.from_user_id}|${item.to_user_id}|${item.reason}|${item.delta}`
 
       const existing = grouped.get(key)
 
       if (existing) {
-        existing.aantal += 1
+        existing.totaal_delta += item.delta
         existing.ids.push(item.id)
       } else {
         grouped.set(key, {
@@ -377,7 +445,7 @@ export default function HomeScreen() {
           created_at: item.created_at,
           from_name: fromName,
           to_name: toName,
-          aantal: 1,
+          totaal_delta: item.delta,
         })
       }
     }
@@ -392,6 +460,7 @@ export default function HomeScreen() {
       return {
         labels: [] as string[],
         series: [] as ChartSeries[],
+        minValue: 0,
         maxValue: 0,
       }
     }
@@ -411,27 +480,27 @@ export default function HomeScreen() {
       }
     }
 
-    const countsByDayAndMember: Record<string, Record<string, number>> = {}
+    const deltasByDayAndMember: Record<string, Record<string, number>> = {}
 
     for (let i = 0; i < uniqueDays.length; i += 1) {
-      countsByDayAndMember[uniqueDays[i]] = {}
+      deltasByDayAndMember[uniqueDays[i]] = {}
     }
 
     for (let i = 0; i < sortedTimeline.length; i += 1) {
       const item = sortedTimeline[i]
       const day = item.created_at.slice(0, 10)
 
-      if (!countsByDayAndMember[day][item.to_user_id]) {
-        countsByDayAndMember[day][item.to_user_id] = 0
+      if (!deltasByDayAndMember[day][item.to_user_id]) {
+        deltasByDayAndMember[day][item.to_user_id] = 0
       }
 
-      countsByDayAndMember[day][item.to_user_id] += 1
+      deltasByDayAndMember[day][item.to_user_id] += item.delta
     }
 
     const series: ChartSeries[] = members.map((member) => {
       let running = 0
       const values = uniqueDays.map((day) => {
-        running += countsByDayAndMember[day][member.id] || 0
+        running += deltasByDayAndMember[day][member.id] || 0
         return running
       })
 
@@ -442,14 +511,14 @@ export default function HomeScreen() {
       }
     })
 
-    const maxValue = Math.max(
-      0,
-      ...series.flatMap((serie) => serie.values)
-    )
+    const allValues = series.flatMap((serie) => serie.values)
+    const minValue = Math.min(0, ...allValues)
+    const maxValue = Math.max(0, ...allValues)
 
     return {
       labels: uniqueDays,
       series,
+      minValue,
       maxValue,
     }
   }, [timeline, members])
@@ -458,7 +527,7 @@ export default function HomeScreen() {
     currentUserName === 'Hidde' || currentUserName === 'Gert-Jan'
 
   const chartWidth = Math.max(width - screenPadding * 2 - 28, chartData.labels.length * 80)
-  const chartHeight = compact ? 300 : 400
+  const chartHeight = compact ? 220 : 250
   const chartPaddingLeft = 40
   const chartPaddingRight = 16
   const chartPaddingTop = 20
@@ -475,8 +544,10 @@ export default function HomeScreen() {
   }
 
   function getY(value: number) {
-    const max = Math.max(1, chartData.maxValue)
-    return chartPaddingTop + plotHeight - (value / max) * plotHeight
+    const min = chartData.minValue
+    const max = chartData.maxValue
+    const range = Math.max(1, max - min)
+    return chartPaddingTop + plotHeight - ((value - min) / range) * plotHeight
   }
 
   function buildPath(values: number[]) {
@@ -755,16 +826,8 @@ export default function HomeScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <Svg width={chartWidth} height={chartHeight}>
                   {[0, 1, 2, 3, 4].map((step) => {
-                    const max = Math.max(1, chartData.maxValue)
-                    const value = Math.round((max / 4) * (4 - step))
-                    const y = chartPaddingTop + (plotHeight / 4) * step
-
-                    return (
-                      <View key={step.toString()} />
-                    )
-                  })}
-
-                  {[0, 1, 2, 3, 4].map((step) => {
+                    const value =
+                      chartData.maxValue - ((chartData.maxValue - chartData.minValue) / 4) * step
                     const y = chartPaddingTop + (plotHeight / 4) * step
 
                     return (
@@ -781,8 +844,8 @@ export default function HomeScreen() {
                   })}
 
                   {[0, 1, 2, 3, 4].map((step) => {
-                    const max = Math.max(1, chartData.maxValue)
-                    const value = Math.round((max / 4) * (4 - step))
+                    const value =
+                      chartData.maxValue - ((chartData.maxValue - chartData.minValue) / 4) * step
                     const y = chartPaddingTop + (plotHeight / 4) * step
 
                     return (
@@ -794,7 +857,7 @@ export default function HomeScreen() {
                         fill="#64748b"
                         textAnchor="end"
                       >
-                        {String(value)}
+                        {String(Math.round(value))}
                       </SvgText>
                     )
                   })}
@@ -886,6 +949,102 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {(currentUserName === 'Hidde' || currentUserName === 'Gert-Jan') ? (
+          <View
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 18,
+              padding: compact ? 12 : 14,
+              borderWidth: 1,
+              borderColor: '#e5e7eb',
+              gap: 12,
+            }}
+          >
+            <Text style={{ fontSize: 19, fontWeight: '700', color: '#111827' }}>
+              Streepjes wegwerken
+            </Text>
+
+            <Text style={{ color: '#6b7280' }}>
+              Kies van wie streepjes afgaan en vul het aantal in.
+            </Text>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              {members.map((member) => {
+                const selected = cleanupUserId === member.id
+
+                return (
+                  <Pressable
+                    key={member.id}
+                    onPress={() => {
+                      setCleanupUserId(member.id)
+                      setCleanupMessage('')
+                    }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: selected ? '#be123c' : '#d1d5db',
+                      backgroundColor: selected ? '#fff1f2' : '#f8fafc',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: selected ? '#be123c' : '#111827',
+                      }}
+                    >
+                      {member.display_name}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+
+            <TextInput
+              value={cleanupAantal}
+              onChangeText={setCleanupAantal}
+              keyboardType="numeric"
+              placeholder="Aantal streepjes"
+              style={{
+                borderWidth: 1,
+                borderColor: '#d1d5db',
+                borderRadius: 14,
+                padding: 14,
+                fontSize: 15,
+                backgroundColor: '#fafafa',
+              }}
+            />
+
+            <Pressable
+              onPress={handleCleanup}
+              disabled={cleanupSaving}
+              style={{
+                backgroundColor: '#be123c',
+                borderRadius: 14,
+                paddingVertical: 13,
+                alignItems: 'center',
+                opacity: cleanupSaving ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                {cleanupSaving ? 'Bezig...' : 'Streepjes wegwerken'}
+              </Text>
+            </Pressable>
+
+            {cleanupMessage ? (
+              <Text style={{ color: '#be123c', fontSize: 14 }}>{cleanupMessage}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <View
           style={{
             backgroundColor: 'white',
@@ -947,15 +1106,22 @@ export default function HomeScreen() {
                       style={{
                         alignSelf: 'flex-start',
                         borderRadius: 999,
-                        backgroundColor: '#ecfdf3',
+                        backgroundColor: item.totaal_delta >= 0 ? '#ecfdf3' : '#fff1f2',
                         paddingHorizontal: 10,
                         paddingVertical: 5,
                         borderWidth: 1,
-                        borderColor: '#bbf7d0',
+                        borderColor: item.totaal_delta >= 0 ? '#bbf7d0' : '#fecdd3',
                       }}
                     >
-                      <Text style={{ color: '#166534', fontWeight: '700', fontSize: 13 }}>
-                        {item.aantal} {item.aantal === 1 ? 'streepje' : 'streepjes'}
+                      <Text
+                        style={{
+                          color: item.totaal_delta >= 0 ? '#166534' : '#be123c',
+                          fontWeight: '700',
+                          fontSize: 13,
+                        }}
+                      >
+                        {item.totaal_delta > 0 ? '+' : ''}
+                        {item.totaal_delta} {Math.abs(item.totaal_delta) === 1 ? 'streepje' : 'streepjes'}
                       </Text>
                     </View>
 
@@ -1242,10 +1408,9 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 15, color: '#374151', lineHeight: 22 }}>
               Weet je zeker dat je{' '}
               <Text style={{ fontWeight: '700' }}>
-                {deleteItem?.aantal} {deleteItem?.aantal === 1 ? 'streepje' : 'streepjes'}
+                {Math.abs(deleteItem?.totaal_delta || 0)} {Math.abs(deleteItem?.totaal_delta || 0) === 1 ? 'streepje' : 'streepjes'}
               </Text>{' '}
-              wilt weghalen van{' '}
-              <Text style={{ fontWeight: '700' }}>{deleteItem?.to_name}</Text>?
+              wilt verwijderen?
             </Text>
 
             <View
