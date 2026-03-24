@@ -7,6 +7,8 @@ import {
   Modal,
   ScrollView,
   Image,
+  SafeAreaView,
+  useWindowDimensions,
 } from 'react-native'
 import { router } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -60,9 +62,8 @@ type ChartSeries = {
 const STORAGE_KEY = 'selected_member'
 const bannerImage = require('../assets/members/_GroupsfotoGoed.png')
 const bannerImageOffsetY = -70
-const bannerImageHeight = '120%'
+const bannerImageHeight = '145%'
 const baseChartColor = '#166534'
-// This is a comment
 
 export default function HomeScreen() {
   const [currentMemberId, setCurrentMemberId] = useState('')
@@ -82,6 +83,24 @@ export default function HomeScreen() {
   const [deleteItem, setDeleteItem] = useState<TimelineDisplayItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [selectedChartMemberId, setSelectedChartMemberId] = useState('')
+  const { width } = useWindowDimensions()
+
+  const screenPadding = width < 420 ? 10 : 14
+  const modalOuterPadding = width < 420 ? 10 : 16
+  const modalInnerPadding = width < 420 ? 12 : 16
+  const modalWidth = Math.min(width - modalOuterPadding * 2, 620)
+  const compact = width < 420
+
+  const modalTileLayout = useMemo(() => {
+    const gap = compact ? 8 : 10
+    let columns = 5
+    if (width < 700) columns = 4
+    if (width < 520) columns = 3
+    if (width < 360) columns = 2
+    const tileWidth = (modalWidth - modalInnerPadding * 2 - gap * (columns - 1)) / columns
+
+    return { gap, columns, tileWidth }
+  }, [compact, width, modalWidth, modalInnerPadding])
 
   useEffect(() => {
     loadCurrentUserAndData()
@@ -438,8 +457,8 @@ export default function HomeScreen() {
   const magVerwijderen =
     currentUserName === 'Hidde' || currentUserName === 'Gert-Jan'
 
-  const chartWidth = Math.max(520, chartData.labels.length * 80)
-  const chartHeight = 250
+  const chartWidth = Math.max(width - screenPadding * 2 - 28, chartData.labels.length * 80)
+  const chartHeight = compact ? 300 : 400
   const chartPaddingLeft = 40
   const chartPaddingRight = 16
   const chartPaddingTop = 20
@@ -491,30 +510,32 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 24,
-          backgroundColor: '#f8fafc',
-        }}
-      >
-        <Text style={{ fontSize: 18, color: '#334155' }}>Laden...</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <Text style={{ fontSize: 18, color: '#334155' }}>Laden...</Text>
+        </View>
+      </SafeAreaView>
     )
   }
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
       <ScrollView
         style={{ flex: 1, backgroundColor: '#f8fafc' }}
-        contentContainerStyle={{ padding: 14, gap: 12 }}
+        contentContainerStyle={{ padding: screenPadding, gap: 12 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View
           style={{
             width: '100%',
-            height: 450,
+            height: compact ? 210 : 240,
             borderRadius: 20,
             overflow: 'hidden',
             borderWidth: 1,
@@ -538,12 +559,12 @@ export default function HomeScreen() {
               flex: 1,
               backgroundColor: 'rgba(17,24,39,0.24)',
               justifyContent: 'flex-end',
-              padding: 16,
+              padding: compact ? 12 : 16,
             }}
           >
             <Text
               style={{
-                fontSize: 28,
+                fontSize: compact ? 24 : 28,
                 fontWeight: '700',
                 color: 'white',
                 textShadowColor: 'rgba(0,0,0,0.35)',
@@ -612,7 +633,7 @@ export default function HomeScreen() {
           style={{
             backgroundColor: 'white',
             borderRadius: 18,
-            padding: 14,
+            padding: compact ? 12 : 14,
             borderWidth: 1,
             borderColor: '#e5e7eb',
             gap: 10,
@@ -647,7 +668,7 @@ export default function HomeScreen() {
           style={{
             backgroundColor: 'white',
             borderRadius: 18,
-            padding: 14,
+            padding: compact ? 12 : 14,
             borderWidth: 1,
             borderColor: '#e5e7eb',
             gap: 10,
@@ -672,7 +693,7 @@ export default function HomeScreen() {
                 borderColor: index === 0 ? '#bbf7d0' : '#ededed',
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
                 <View
                   style={{
                     width: 26,
@@ -688,7 +709,10 @@ export default function HomeScreen() {
                   </Text>
                 </View>
 
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 15, fontWeight: '600', color: '#111827', flex: 1 }}
+                >
                   {row.displayName}
                 </Text>
               </View>
@@ -699,6 +723,7 @@ export default function HomeScreen() {
                   backgroundColor: '#fff1f2',
                   paddingHorizontal: 12,
                   paddingVertical: 6,
+                  marginLeft: 10,
                 }}
               >
                 <Text style={{ color: '#be123c', fontWeight: '700', fontSize: 13 }}>
@@ -713,7 +738,7 @@ export default function HomeScreen() {
           style={{
             backgroundColor: 'white',
             borderRadius: 18,
-            padding: 14,
+            padding: compact ? 12 : 14,
             borderWidth: 1,
             borderColor: '#e5e7eb',
             gap: 12,
@@ -740,8 +765,6 @@ export default function HomeScreen() {
                   })}
 
                   {[0, 1, 2, 3, 4].map((step) => {
-                    const max = Math.max(1, chartData.maxValue)
-                    const value = Math.round((max / 4) * (4 - step))
                     const y = chartPaddingTop + (plotHeight / 4) * step
 
                     return (
@@ -867,7 +890,7 @@ export default function HomeScreen() {
           style={{
             backgroundColor: 'white',
             borderRadius: 18,
-            padding: 14,
+            padding: compact ? 12 : 14,
             borderWidth: 1,
             borderColor: '#e5e7eb',
             gap: 10,
@@ -975,214 +998,218 @@ export default function HomeScreen() {
             backgroundColor: 'rgba(0,0,0,0.35)',
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 16,
+            padding: modalOuterPadding,
           }}
         >
           <View
             style={{
-              width: '100%',
-              maxWidth: 620,
+              width: modalWidth,
+              maxHeight: '90%',
               backgroundColor: 'white',
               borderRadius: 20,
-              padding: 16,
+              padding: modalInnerPadding,
               borderWidth: 1,
               borderColor: '#e5e7eb',
             }}
           >
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: '700',
-                color: '#111827',
-                marginBottom: 6,
-              }}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              Streepje geven
-            </Text>
+              <Text
+                style={{
+                  fontSize: compact ? 20 : 22,
+                  fontWeight: '700',
+                  color: '#111827',
+                  marginBottom: 6,
+                }}
+              >
+                Streepje geven
+              </Text>
 
-            <Text
-              style={{
-                color: '#6b7280',
-                marginBottom: 14,
-              }}
-            >
-              Kies aan wie je een streepje wilt geven.
-            </Text>
+              <Text
+                style={{
+                  color: '#6b7280',
+                  marginBottom: 14,
+                }}
+              >
+                Kies aan wie je een streepje wilt geven.
+              </Text>
 
-            <View
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                marginBottom: 14,
-              }}
-            >
-              {members
-                .filter((member) => member.id !== currentMemberId)
-                .map((member) => {
-                  const selected = selectedUserId === member.id
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: modalTileLayout.gap,
+                  marginBottom: 14,
+                }}
+              >
+                {members
+                  .filter((member) => member.id !== currentMemberId)
+                  .map((member) => {
+                    const selected = selectedUserId === member.id
+
+                    return (
+                      <Pressable
+                        key={member.id}
+                        onPress={() => {
+                          setSelectedUserId(member.id)
+                          setModalMessage('')
+                        }}
+                        style={{
+                          width: modalTileLayout.tileWidth,
+                          minHeight: compact ? 54 : 60,
+                          paddingVertical: 10,
+                          paddingHorizontal: 8,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: selected ? '#16a34a' : '#d1d5db',
+                          backgroundColor: selected ? '#ecfdf3' : '#f8fafc',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            textAlign: 'center',
+                            fontWeight: '700',
+                            fontSize: compact ? 12 : 13,
+                            color: selected ? '#166534' : '#111827',
+                          }}
+                        >
+                          {member.display_name}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+              </View>
+
+              <Text
+                style={{
+                  fontWeight: '700',
+                  color: '#111827',
+                  marginBottom: 8,
+                }}
+              >
+                Aantal streepjes
+              </Text>
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  marginBottom: 14,
+                }}
+              >
+                {[1, 2, 3].map((aantal) => {
+                  const selected = streepjesAantal === aantal
 
                   return (
                     <Pressable
-                      key={member.id}
-                      onPress={() => {
-                        setSelectedUserId(member.id)
-                        setModalMessage('')
-                      }}
+                      key={aantal}
+                      onPress={() => setStreepjesAantal(aantal)}
                       style={{
-                        width: '18%',
-                        minWidth: 90,
+                        flex: 1,
                         paddingVertical: 12,
-                        paddingHorizontal: 8,
-                        marginBottom: 10,
                         borderRadius: 12,
                         borderWidth: 2,
                         borderColor: selected ? '#16a34a' : '#d1d5db',
                         backgroundColor: selected ? '#ecfdf3' : '#f8fafc',
                         alignItems: 'center',
-                        justifyContent: 'center',
                       }}
                     >
                       <Text
                         style={{
-                          textAlign: 'center',
                           fontWeight: '700',
-                          fontSize: 13,
+                          fontSize: 15,
                           color: selected ? '#166534' : '#111827',
                         }}
                       >
-                        {member.display_name}
+                        {aantal}
                       </Text>
                     </Pressable>
                   )
                 })}
-            </View>
+              </View>
 
-            <Text
-              style={{
-                fontWeight: '700',
-                color: '#111827',
-                marginBottom: 8,
-              }}
-            >
-              Aantal streepjes
-            </Text>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: 10,
-                marginBottom: 14,
-              }}
-            >
-              {[1, 2, 3].map((aantal) => {
-                const selected = streepjesAantal === aantal
-
-                return (
-                  <Pressable
-                    key={aantal}
-                    onPress={() => setStreepjesAantal(aantal)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 12,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: selected ? '#16a34a' : '#d1d5db',
-                      backgroundColor: selected ? '#ecfdf3' : '#f8fafc',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontWeight: '700',
-                        fontSize: 15,
-                        color: selected ? '#166534' : '#111827',
-                      }}
-                    >
-                      {aantal}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-
-            <Text
-              style={{
-                fontWeight: '700',
-                color: '#111827',
-                marginBottom: 8,
-              }}
-            >
-              Reden
-            </Text>
-
-            <TextInput
-              placeholder="Typ hier de reden..."
-              value={reason}
-              onChangeText={setReason}
-              multiline
-              textAlignVertical="top"
-              style={{
-                borderWidth: 1,
-                borderColor: '#d1d5db',
-                borderRadius: 14,
-                padding: 14,
-                minHeight: 140,
-                fontSize: 15,
-                backgroundColor: '#fafafa',
-                marginBottom: 14,
-              }}
-            />
-
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable
-                onPress={addStreepje}
-                disabled={saving}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#16a34a',
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
-                  {saving ? 'Opslaan...' : 'Opslaan'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setShowModal(false)
-                  setModalMessage('')
-                }}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#fff1f2',
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: '#be123c', fontWeight: '700', fontSize: 16 }}>
-                  Annuleren
-                </Text>
-              </Pressable>
-            </View>
-
-            {modalMessage ? (
               <Text
                 style={{
-                  color: '#be123c',
-                  textAlign: 'center',
-                  fontSize: 14,
-                  marginTop: 12,
+                  fontWeight: '700',
+                  color: '#111827',
+                  marginBottom: 8,
                 }}
               >
-                {modalMessage}
+                Reden
               </Text>
-            ) : null}
+
+              <TextInput
+                placeholder="Typ hier de reden..."
+                value={reason}
+                onChangeText={setReason}
+                multiline
+                textAlignVertical="top"
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#d1d5db',
+                  borderRadius: 14,
+                  padding: 14,
+                  minHeight: compact ? 120 : 140,
+                  fontSize: 15,
+                  backgroundColor: '#fafafa',
+                  marginBottom: 14,
+                }}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  onPress={addStreepje}
+                  disabled={saving}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#16a34a',
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                    {saving ? 'Opslaan...' : 'Opslaan'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setShowModal(false)
+                    setModalMessage('')
+                  }}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#fff1f2',
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#be123c', fontWeight: '700', fontSize: 16 }}>
+                    Annuleren
+                  </Text>
+                </Pressable>
+              </View>
+
+              {modalMessage ? (
+                <Text
+                  style={{
+                    color: '#be123c',
+                    textAlign: 'center',
+                    fontSize: 14,
+                    marginTop: 12,
+                  }}
+                >
+                  {modalMessage}
+                </Text>
+              ) : null}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1194,22 +1221,21 @@ export default function HomeScreen() {
             backgroundColor: 'rgba(0,0,0,0.35)',
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 16,
+            padding: modalOuterPadding,
           }}
         >
           <View
             style={{
-              width: '100%',
-              maxWidth: 460,
+              width: Math.min(width - modalOuterPadding * 2, 460),
               backgroundColor: 'white',
               borderRadius: 20,
-              padding: 18,
+              padding: modalInnerPadding,
               borderWidth: 1,
               borderColor: '#e5e7eb',
               gap: 12,
             }}
           >
-            <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>
+            <Text style={{ fontSize: compact ? 20 : 22, fontWeight: '700', color: '#111827' }}>
               Streepje(s) weghalen
             </Text>
 
@@ -1283,6 +1309,6 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-    </>
+    </SafeAreaView>
   )
 }

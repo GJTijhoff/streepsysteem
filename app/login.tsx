@@ -1,5 +1,13 @@
-import { useState } from 'react'
-import { View, Text, Pressable, ImageBackground } from 'react-native'
+import { useMemo, useState } from 'react'
+import {
+  View,
+  Text,
+  Pressable,
+  ImageBackground,
+  useWindowDimensions,
+  ScrollView,
+  SafeAreaView,
+} from 'react-native'
 import { router } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -21,6 +29,31 @@ const STORAGE_KEY = 'selected_member'
 export default function LoginScreen() {
   const [selectedName, setSelectedName] = useState('')
   const [message, setMessage] = useState('')
+  const { width } = useWindowDimensions()
+
+    const layout = useMemo(() => {
+    const screenPadding = width < 420 ? 12 : 24
+    const cardPadding = width < 420 ? 14 : 24
+    const tileGap = width < 420 ? 8 : 12
+    const containerWidth = Math.min(width - screenPadding * 2, 760)
+
+    let columns = 5
+    if (width < 700) columns = 4
+    if (width < 520) columns = 3
+    if (width < 360) columns = 2
+
+    const tileSize =
+        (containerWidth - cardPadding * 2 - tileGap * (columns - 1)) / columns
+
+    return {
+        screenPadding,
+        cardPadding,
+        tileGap,
+        columns,
+        tileSize,
+        containerWidth,
+    }
+    }, [width])
 
   async function handleContinue() {
     setMessage('')
@@ -46,189 +79,193 @@ export default function LoginScreen() {
       style={{ flex: 1 }}
       resizeMode="cover"
     >
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0,0,0,0.42)',
-          padding: 24,
-        }}
-      >
-        <View
-          style={{
-            width: '100%',
-            maxWidth: 760,
-            backgroundColor: 'white',
-            borderRadius: 24,
-            padding: 24,
-            borderWidth: 1,
-            borderColor: '#e5e7eb',
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.42)',
+            padding: layout.screenPadding,
           }}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text
-            style={{
-              fontSize: 30,
-              fontWeight: '700',
-              textAlign: 'center',
-              marginBottom: 8,
-              color: '#111827',
-            }}
-          >
-            Streepsysteem
-          </Text>
-
-          <Text
-            style={{
-              textAlign: 'center',
-              color: '#374151',
-              fontSize: 16,
-              marginBottom: 4,
-            }}
-          >
-            Kies je naam
-          </Text>
-
-          <Text
-            style={{
-              textAlign: 'center',
-              color: '#6b7280',
-              fontSize: 14,
-              marginBottom: 22,
-            }}
-          >
-            Klik op je naam om verder te gaan
-          </Text>
-
           <View
             style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              marginBottom: 20,
+              width: '100%',
+              maxWidth: layout.containerWidth,
+              backgroundColor: 'white',
+              borderRadius: 24,
+              padding: layout.cardPadding,
+              borderWidth: 1,
+              borderColor: '#e5e7eb',
             }}
           >
-            {members.map((member) => {
-              const selected = selectedName === member.name
+            <Text
+              style={{
+                fontSize: width < 420 ? 26 : 30,
+                fontWeight: '700',
+                textAlign: 'center',
+                marginBottom: 8,
+                color: '#111827',
+              }}
+            >
+              Streepsysteem
+            </Text>
 
-              return (
-                <Pressable
+            <Text
+              style={{
+                textAlign: 'center',
+                color: '#374151',
+                fontSize: width < 420 ? 15 : 16,
+                marginBottom: 4,
+              }}
+            >
+              Kies je naam
+            </Text>
+
+            <Text
+              style={{
+                textAlign: 'center',
+                color: '#6b7280',
+                fontSize: 14,
+                marginBottom: 20,
+              }}
+            >
+              Klik op je naam om verder te gaan
+            </Text>
+
+            <View
+            style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                marginBottom: 18,
+                marginHorizontal: -layout.tileGap / 2,
+            }}
+            >
+              {members.map((member) => {
+                const selected = selectedName === member.name
+
+                return (
+                  <Pressable
                     key={member.name}
                     onPress={() => {
-                        setSelectedName(member.name)
-                        setMessage('')
+                      setSelectedName(member.name)
+                      setMessage('')
                     }}
                     style={{
-                        width: '18%',
-                        aspectRatio: 1,
-                        minWidth: 110,
-                        marginBottom: 14,
-                        borderRadius: 16,
-                        overflow: 'hidden',
-                        backgroundColor: '#e5e7eb',
+                    width: layout.tileSize,
+                    height: layout.tileSize,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    backgroundColor: '#e5e7eb',
+                    marginHorizontal: layout.tileGap / 2,
+                    marginBottom: layout.tileGap,
                     }}
-                    >
+                  >
                     <ImageBackground
-                        source={member.image}
-                        resizeMode="cover"
-                        imageStyle={{
+                      source={member.image}
+                      resizeMode="cover"
+                      imageStyle={{
                         width: '100%',
                         height: '100%',
                         borderRadius: 16,
-                        }}
-                        style={{
+                      }}
+                      style={{
                         flex: 1,
                         justifyContent: 'center',
-                        }}
+                      }}
                     >
-                        <View
+                      <View
                         style={{
-                            flex: 1,
-                            borderRadius: 16,
-                            borderWidth: 2,
-                            borderColor: selected ? '#16a34a' : '#d1d5db',
-                            backgroundColor: selected ? 'rgba(22,163,74,0.28)' : 'rgba(0,0,0,0.22)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 10,
+                          flex: 1,
+                          borderRadius: 16,
+                          borderWidth: 2,
+                          borderColor: selected ? '#16a34a' : '#d1d5db',
+                          backgroundColor: selected ? 'rgba(22,163,74,0.30)' : 'rgba(0,0,0,0.26)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: 8,
                         }}
-                        >
+                      >
                         <Text
-                            style={{
+                          style={{
                             textAlign: 'center',
-                            fontSize: 15,
+                            fontSize: width < 420 ? 13 : 15,
                             fontWeight: '700',
                             color: 'white',
                             textShadowColor: 'rgba(0,0,0,0.55)',
                             textShadowOffset: { width: 0, height: 1 },
                             textShadowRadius: 4,
-                            }}
+                          }}
                         >
-                            {member.name}
+                          {member.name}
                         </Text>
-                        </View>
+                      </View>
                     </ImageBackground>
-                </Pressable>
-              )
-            })}
+                  </Pressable>
+                )
+              })}
+            </View>
+
+            <View
+              style={{
+                backgroundColor: '#f0fdf4',
+                borderWidth: 1,
+                borderColor: '#bbf7d0',
+                borderRadius: 14,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 15,
+                  color: '#166534',
+                  fontWeight: '600',
+                }}
+              >
+                {selectedName ? `Geselecteerd: ${selectedName}` : 'Nog niemand geselecteerd'}
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={handleContinue}
+              style={{
+                backgroundColor: '#111827',
+                paddingVertical: 15,
+                borderRadius: 14,
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  color: 'white',
+                  fontWeight: '700',
+                  fontSize: 16,
+                }}
+              >
+                Verder
+              </Text>
+            </Pressable>
+
+            {message ? (
+              <Text
+                style={{
+                  color: '#be123c',
+                  textAlign: 'center',
+                  fontSize: 14,
+                  marginTop: 14,
+                }}
+              >
+                {message}
+              </Text>
+            ) : null}
           </View>
-
-          <View
-            style={{
-              backgroundColor: '#f0fdf4',
-              borderWidth: 1,
-              borderColor: '#bbf7d0',
-              borderRadius: 14,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 15,
-                color: '#166534',
-                fontWeight: '600',
-              }}
-            >
-              {selectedName ? `Geselecteerd: ${selectedName}` : 'Nog niemand geselecteerd'}
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={handleContinue}
-            style={{
-              backgroundColor: '#111827',
-              paddingVertical: 15,
-              borderRadius: 14,
-              alignItems: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: 'white',
-                fontWeight: '700',
-                fontSize: 16,
-              }}
-            >
-              Verder
-            </Text>
-          </Pressable>
-
-          {message ? (
-            <Text
-              style={{
-                color: '#be123c',
-                textAlign: 'center',
-                fontSize: 14,
-                marginTop: 14,
-              }}
-            >
-              {message}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </ImageBackground>
   )
 }
