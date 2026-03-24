@@ -62,6 +62,7 @@ const bannerImage = require('../assets/members/_GroupsfotoGoed.png')
 const bannerImageOffsetY = -70
 const bannerImageHeight = '120%'
 const baseChartColor = '#166534'
+// This is a comment
 
 export default function HomeScreen() {
   const [currentMemberId, setCurrentMemberId] = useState('')
